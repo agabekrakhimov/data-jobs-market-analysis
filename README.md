@@ -22,6 +22,7 @@ An exploratory data analysis (EDA) of the 2024 global data jobs market — uncov
 - **pandas & NumPy** — data wrangling and numerical analysis
 - **matplotlib & seaborn** — static visualizations
 - **Jupyter Notebook** — interactive exploration
+- **pytest** — tests for the cleaning step
 
 ---
 
@@ -30,9 +31,14 @@ An exploratory data analysis (EDA) of the 2024 global data jobs market — uncov
 ```
 data-jobs-market-analysis/
 ├── src/
+│   ├── clean.py              # Normalize titles, salaries, duplicates, nulls
 │   ├── data_generator.py     # Generates realistic sample dataset
 │   ├── analysis.py           # Core analysis functions
 │   └── visualizations.py     # Chart generation
+├── tests/
+│   └── test_clean.py         # Unit tests for the cleaning step
+├── .github/workflows/
+│   └── ci.yml                # Runs pytest on pull requests
 ├── data/
 │   └── jobs_data.csv         # Dataset (auto-generated or real)
 ├── outputs/
@@ -60,9 +66,37 @@ python src/data_generator.py
 # 4. Run full analysis and save charts
 python src/analysis.py
 
-# 5. (Optional) Open the notebook
+# 5. Run the cleaning tests
+pytest
+
+# 6. (Optional) Open the notebook
 jupyter notebook notebooks/eda_analysis.ipynb
 ```
+
+---
+
+## 🧹 Data Cleaning
+
+`src/clean.py` runs inside `load_data()` before any chart. The plots group on an exact role name and take the median of `salary_usd`. A title like `Sr. Data Engineer`, a salary of `$125k` or `100k-140k`, a blank salary, or the same posting twice would split one role across several bars, double-count skills, or crash the median.
+
+The cleaning step:
+
+- maps titles onto the six roles used in the charts (`Sr. Data Engineer` → `Data Engineer`)
+- parses salaries from numbers, `$125,000`, `125k`, and ranges (the midpoint is kept), and drops values outside $20,000–$400,000
+- normalizes skills, experience level, and remote type so the same thing is not counted twice
+- drops rows that still have no role, no usable salary, or no posting date
+- drops duplicate `job_id` values and duplicate postings
+
+`validation_issues()` reports those problems without changing the data. `clean_jobs()` fixes them and raises if nothing usable is left.
+
+### Tests
+
+```bash
+pip install -r requirements.txt
+pytest
+```
+
+GitHub Actions runs the same `pytest` command on pull requests and on pushes to `main` (Python 3.11).
 
 ---
 
