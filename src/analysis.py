@@ -2,6 +2,7 @@
 analysis.py
 -----------
 Core analysis functions for the Data Jobs Market dataset.
+Postings are cleaned in load_data before the charts run.
 Runs a full analysis and saves all charts to outputs/charts/.
 
 Usage:
@@ -10,11 +11,17 @@ Usage:
 
 import pandas as pd
 import numpy as np
+import matplotlib
+
+# Charts are written to disk. Agg avoids a display requirement in CI.
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import seaborn as sns
 from pathlib import Path
 from collections import Counter
+
+from clean import clean_jobs
 
 # ── Styling ───────────────────────────────────────────────────────────────────
 PALETTE      = ["#2D6A4F", "#40916C", "#52B788", "#74C69D", "#95D5B2", "#B7E4C7"]
@@ -33,11 +40,15 @@ CHARTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def load_data(path: str = None) -> pd.DataFrame:
-    """Load the jobs dataset."""
+    """Load job postings and clean them for the charts."""
     if path is None:
         path = Path(__file__).parent.parent / "data" / "jobs_data.csv"
-    df = pd.read_csv(path, parse_dates=["posting_date"])
+    raw = pd.read_csv(path)
+    df = clean_jobs(raw)
+    dropped = len(raw) - len(df)
     print(f"Loaded {len(df):,} records | Columns: {list(df.columns)}")
+    if dropped:
+        print(f"Dropped {dropped:,} rows (blank salary or role, bad dates, duplicates)")
     return df
 
 
@@ -218,7 +229,6 @@ def print_summary(df: pd.DataFrame) -> None:
 
 if __name__ == "__main__":
     from data_generator import generate_dataset
-    import sys
 
     print("Running full analysis...")
 
@@ -226,11 +236,11 @@ if __name__ == "__main__":
     data_path = Path(__file__).parent.parent / "data" / "jobs_data.csv"
     if not data_path.exists():
         print("Dataset not found — generating now...")
-        df = generate_dataset()
+        generated = generate_dataset()
         data_path.parent.mkdir(exist_ok=True)
-        df.to_csv(data_path, index=False)
-    else:
-        df = load_data(str(data_path))
+        generated.to_csv(data_path, index=False)
+
+    df = load_data(str(data_path))
 
     print_summary(df)
 
